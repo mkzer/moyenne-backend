@@ -12,14 +12,12 @@ app.use(express.json());
 
 // Connexion à MongoDB
 mongoose
-    .connect(process.env.MONGO_URI, {
-        // useNewUrlParser et useUnifiedTopology ne sont plus nécessaires avec les versions récentes
-    })
+    .connect(process.env.MONGO_URI)
     .then(() => console.log("✅ Connexion MongoDB réussie"))
     .catch((err) => console.error("❌ Erreur MongoDB :", err));
 
-// Routes
-const utilisateurRoutes = require("./routes/utilisateur.routes");
+// Routes (chemins corrigés)
+const utilisateurRoutes = require("./routes/utilisateurs");
 const noteRoutes = require("./routes/note.routes");
 
 app.use("/api/utilisateurs", utilisateurRoutes);
