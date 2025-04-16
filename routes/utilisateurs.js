@@ -2,10 +2,9 @@ const express = require('express');
 const router = express.Router();
 const Utilisateur = require('../models/Utilisateur');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
 const auth = require('../middleware/auth');
 
-// ▶ INSCRIPTION
+// ▶ INSCRIPTION (sans hash)
 router.post('/inscription', async (req, res) => {
     const { prenom, nom, email, motDePasse, parcours } = req.body;
 
@@ -13,12 +12,11 @@ router.post('/inscription', async (req, res) => {
         const existe = await Utilisateur.findOne({ email });
         if (existe) return res.status(400).json({ message: 'Email déjà utilisé.' });
 
-        const hash = await bcrypt.hash(motDePasse, 10);
         const utilisateur = new Utilisateur({
             prenom,
             nom,
             email,
-            motDePasse: hash,
+            motDePasse, // mot de passe stocké en clair (⚠️ uniquement pour tests/démo)
             parcours
         });
 
@@ -29,7 +27,7 @@ router.post('/inscription', async (req, res) => {
     }
 });
 
-// ▶ CONNEXION
+// ▶ CONNEXION (sans comparaison hash)
 router.post('/connexion', async (req, res) => {
     const { email, motDePasse } = req.body;
 
@@ -37,8 +35,9 @@ router.post('/connexion', async (req, res) => {
         const utilisateur = await Utilisateur.findOne({ email });
         if (!utilisateur) return res.status(404).json({ message: 'Utilisateur non trouvé.' });
 
-        const valide = await bcrypt.compare(motDePasse, utilisateur.motDePasse);
-        if (!valide) return res.status(401).json({ message: 'Mot de passe incorrect.' });
+        if (motDePasse !== utilisateur.motDePasse) {
+            return res.status(401).json({ message: 'Mot de passe incorrect.' });
+        }
 
         const token = jwt.sign(
             { id: utilisateur._id, isAdmin: utilisateur.isAdmin },
