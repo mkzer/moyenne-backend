@@ -18,7 +18,7 @@ mongoose
 
 // Routes (chemins corrigés)
 const utilisateurRoutes = require("./routes/utilisateurs");
-const noteRoutes = require("./routes/note.routes");
+const noteRoutes = require("./routes/notes");
 
 app.use("/api/utilisateurs", utilisateurRoutes);
 app.use("/api/notes", noteRoutes);
