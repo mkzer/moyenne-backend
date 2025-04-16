@@ -6,6 +6,8 @@ const auth = require('../middleware/auth');
 
 // ▶ INSCRIPTION (sans hash)
 router.post('/inscription', async (req, res) => {
+    console.log(">>> [POST] /inscription", req.body); // 👈 Debug log ici
+
     const { prenom, nom, email, motDePasse, parcours } = req.body;
 
     try {
@@ -23,6 +25,7 @@ router.post('/inscription', async (req, res) => {
         await utilisateur.save();
         res.status(201).json({ message: 'Utilisateur créé avec succès.' });
     } catch (err) {
+        console.error("Erreur lors de l'inscription :", err); // 👈 Log erreur utile
         res.status(500).json({ message: 'Erreur serveur.' });
     }
 });
@@ -58,6 +61,7 @@ router.post('/connexion', async (req, res) => {
             }
         });
     } catch (err) {
+        console.error("Erreur lors de la connexion :", err); // 👈 Log erreur utile
         res.status(500).json({ message: 'Erreur serveur.' });
     }
 });
