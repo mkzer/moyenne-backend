@@ -1,32 +1,31 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-require('dotenv').config({ path: __dirname + '/.env' });
-
-// 🔁 Import des routes
-const utilisateursRoutes = require('./routes/utilisateurs');
-const notesRoutes = require('./routes/notes');
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// 🔧 Middleware
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// ✅ Connexion à MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-})
-    .then(() => console.log('✅ Connexion MongoDB réussie'))
-    .catch((err) => console.error('❌ Erreur MongoDB :', err));
+// Connexion à MongoDB
+mongoose
+    .connect(process.env.MONGO_URI, {
+        // useNewUrlParser et useUnifiedTopology ne sont plus nécessaires avec les versions récentes
+    })
+    .then(() => console.log("✅ Connexion MongoDB réussie"))
+    .catch((err) => console.error("❌ Erreur MongoDB :", err));
 
-// 🚦 Définition des routes
-app.use('/api/utilisateurs', utilisateursRoutes);
-app.use('/api/notes', notesRoutes);
+// Routes
+const utilisateurRoutes = require("./routes/utilisateur.routes");
+const noteRoutes = require("./routes/note.routes");
 
-// 🚀 Lancement du serveur
+app.use("/api/utilisateurs", utilisateurRoutes);
+app.use("/api/notes", noteRoutes);
+
+// Lancement du serveur
 app.listen(PORT, () => {
-    console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`);
+    console.log(`🚀 Serveur lancé sur le port ${PORT}`);
 });
