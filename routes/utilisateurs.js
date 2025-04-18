@@ -3,49 +3,37 @@ const router = express.Router();
 const Utilisateur = require('../models/Utilisateur');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
+const bcrypt = require('bcryptjs');
 
-// 🎓 Liste des parcours valides
-const parcoursValides = {
-    "M1 EEA MTI": "MTI",
-    "M1 EEA ISHM": "ISHM",
-    "M1 EEA IMEEN": "IMEEN",
-    "MTI": "MTI",
-    "ISHM": "ISHM",
-    "IMEEN": "IMEEN"
-};
-
-// ▶ INSCRIPTION
+// ▶ INSCRIPTION avec hash
 router.post('/inscription', async (req, res) => {
-    console.log("📩 Demande inscription :", req.body);
+    console.log(">>> [POST] /inscription", req.body);
 
     const { prenom, nom, email, motDePasse, parcours } = req.body;
-    const parcoursNormalisé = parcoursValides[parcours];
-
-    if (!parcoursNormalisé) {
-        return res.status(400).json({ message: "Parcours inconnu ou non pris en charge." });
-    }
 
     try {
         const existe = await Utilisateur.findOne({ email });
         if (existe) return res.status(400).json({ message: 'Email déjà utilisé.' });
 
+        const hash = await bcrypt.hash(motDePasse, 10);
+
         const utilisateur = new Utilisateur({
             prenom,
             nom,
             email,
-            motDePasse, // en clair uniquement pour test
-            parcours: parcoursNormalisé
+            motDePasse: hash,
+            parcours
         });
 
         await utilisateur.save();
         res.status(201).json({ message: 'Utilisateur créé avec succès.' });
     } catch (err) {
-        console.error("❌ Erreur inscription :", err);
+        console.error("Erreur lors de l'inscription :", err);
         res.status(500).json({ message: 'Erreur serveur.' });
     }
 });
 
-// ▶ CONNEXION
+// ▶ CONNEXION avec comparaison hash
 router.post('/connexion', async (req, res) => {
     const { email, motDePasse } = req.body;
 
@@ -53,7 +41,8 @@ router.post('/connexion', async (req, res) => {
         const utilisateur = await Utilisateur.findOne({ email });
         if (!utilisateur) return res.status(404).json({ message: 'Utilisateur non trouvé.' });
 
-        if (motDePasse !== utilisateur.motDePasse) {
+        const isMatch = await bcrypt.compare(motDePasse, utilisateur.motDePasse);
+        if (!isMatch) {
             return res.status(401).json({ message: 'Mot de passe incorrect.' });
         }
 
@@ -76,12 +65,12 @@ router.post('/connexion', async (req, res) => {
             }
         });
     } catch (err) {
-        console.error("❌ Erreur connexion :", err);
+        console.error("Erreur lors de la connexion :", err);
         res.status(500).json({ message: 'Erreur serveur.' });
     }
 });
 
-// ▶ ADMIN : tous les utilisateurs
+// ▶ ADMIN : liste de tous les utilisateurs
 router.get('/', auth, async (req, res) => {
     if (!req.utilisateur.isAdmin) {
         return res.status(403).json({ message: 'Accès interdit (admin uniquement).' });
