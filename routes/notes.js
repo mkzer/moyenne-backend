@@ -4,7 +4,6 @@ const Note = require('../models/Note');
 const Utilisateur = require('../models/Utilisateur');
 const auth = require('../middleware/auth');
 
-// 🎯 Matières communes à tous les parcours
 const commun = [
     { code: "801.1", nom: "Rapports de projet", coefficient: 3 },
     { code: "801.2", nom: "Présentations de projet", coefficient: 3 },
@@ -18,7 +17,6 @@ const commun = [
     { code: "872.2.2", nom: "Réseaux : TP", coefficient: 1 }
 ];
 
-// 📚 Parcours avec matières spécifiques ET communes intégrées
 const parcoursNotes = {
     MTI: [
         ...commun,
@@ -69,8 +67,15 @@ router.post('/init', auth, async (req, res) => {
         const utilisateur = await Utilisateur.findById(req.utilisateur.id);
         if (!utilisateur) return res.status(404).json({ message: "Utilisateur non trouvé." });
 
-        const parcours = utilisateur.parcours;
-        const notesParcours = parcoursNotes[parcours];
+        const parcours = utilisateur.parcours?.trim().toUpperCase();
+        const mapping = {
+            "M1 EEA MTI": "MTI",
+            "M1 EEA ISHM": "ISHM",
+            "M1 EEA IMEEN": "IMEEN"
+        };
+        const codeParcours = mapping[parcours] || parcours;
+
+        const notesParcours = parcoursNotes[codeParcours];
 
         if (!notesParcours) {
             return res.json({ message: "Pas de notes automatiques pour ce parcours." });
