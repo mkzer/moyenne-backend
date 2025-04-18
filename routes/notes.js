@@ -61,7 +61,18 @@ const parcoursNotes = {
     ]
 };
 
-// 🔁 Initialisation automatique des notes
+// ✅ GET /api/notes — récupérer les notes de l'utilisateur connecté
+router.get('/', auth, async (req, res) => {
+    try {
+        const notes = await Note.find({ utilisateurId: req.utilisateur.id });
+        res.json(notes);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Erreur serveur." });
+    }
+});
+
+// 🔁 POST /api/notes/init — Initialisation automatique des notes
 router.post('/init', auth, async (req, res) => {
     try {
         const utilisateur = await Utilisateur.findById(req.utilisateur.id);
