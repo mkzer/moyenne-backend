@@ -4,11 +4,26 @@ const Utilisateur = require('../models/Utilisateur');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 
-// ▶ INSCRIPTION (sans hash)
+// 🎓 Liste des parcours valides
+const parcoursValides = {
+    "M1 EEA MTI": "MTI",
+    "M1 EEA ISHM": "ISHM",
+    "M1 EEA IMEEN": "IMEEN",
+    "MTI": "MTI",
+    "ISHM": "ISHM",
+    "IMEEN": "IMEEN"
+};
+
+// ▶ INSCRIPTION
 router.post('/inscription', async (req, res) => {
-    console.log(">>> [POST] /inscription", req.body); // 👈 Debug log ici
+    console.log("📩 Demande inscription :", req.body);
 
     const { prenom, nom, email, motDePasse, parcours } = req.body;
+    const parcoursNormalisé = parcoursValides[parcours];
+
+    if (!parcoursNormalisé) {
+        return res.status(400).json({ message: "Parcours inconnu ou non pris en charge." });
+    }
 
     try {
         const existe = await Utilisateur.findOne({ email });
@@ -18,19 +33,19 @@ router.post('/inscription', async (req, res) => {
             prenom,
             nom,
             email,
-            motDePasse, // mot de passe stocké en clair (⚠️ uniquement pour tests/démo)
-            parcours
+            motDePasse, // en clair uniquement pour test
+            parcours: parcoursNormalisé
         });
 
         await utilisateur.save();
         res.status(201).json({ message: 'Utilisateur créé avec succès.' });
     } catch (err) {
-        console.error("Erreur lors de l'inscription :", err); // 👈 Log erreur utile
+        console.error("❌ Erreur inscription :", err);
         res.status(500).json({ message: 'Erreur serveur.' });
     }
 });
 
-// ▶ CONNEXION (sans comparaison hash)
+// ▶ CONNEXION
 router.post('/connexion', async (req, res) => {
     const { email, motDePasse } = req.body;
 
@@ -61,12 +76,12 @@ router.post('/connexion', async (req, res) => {
             }
         });
     } catch (err) {
-        console.error("Erreur lors de la connexion :", err); // 👈 Log erreur utile
+        console.error("❌ Erreur connexion :", err);
         res.status(500).json({ message: 'Erreur serveur.' });
     }
 });
 
-// ▶ ADMIN : liste de tous les utilisateurs
+// ▶ ADMIN : tous les utilisateurs
 router.get('/', auth, async (req, res) => {
     if (!req.utilisateur.isAdmin) {
         return res.status(403).json({ message: 'Accès interdit (admin uniquement).' });
