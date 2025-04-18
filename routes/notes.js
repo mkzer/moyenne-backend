@@ -5,6 +5,19 @@ const Utilisateur = require('../models/Utilisateur');
 const auth = require('../middleware/auth');
 
 // 🎯 Données des notes par parcours
+const commun = [
+    { code: "801.1", nom: "Rapports de projet", coefficient: 3 },
+    { code: "801.2", nom: "Présentations de projet", coefficient: 3 },
+    { code: "ANG.1", nom: "Anglais Écrit", coefficient: 1.5 },
+    { code: "ANG.2", nom: "Anglais Oral", coefficient: 1.5 },
+    { code: "871.1", nom: "IA : Théorie", coefficient: 1.5 },
+    { code: "871.2", nom: "IA : TP", coefficient: 1.5 },
+    { code: "872.1.1", nom: "Unix : Examen écrit", coefficient: 0.5 },
+    { code: "872.1.2", nom: "Unix : Rapport TP", coefficient: 0.5 },
+    { code: "872.2.1", nom: "Réseaux : Examen", coefficient: 1 },
+    { code: "872.2.2", nom: "Réseaux : TP", coefficient: 1 }
+];
+
 const parcoursNotes = {
     MTI: [
         { code: "881.1", nom: "Accélération matérielle", coefficient: 1.5 },
@@ -17,7 +30,7 @@ const parcoursNotes = {
         { code: "884.1", nom: "Outils de mise en forme de l'information", coefficient: 1.5 },
         { code: "884.2", nom: "Travaux Pratiques", coefficient: 1.5 },
         { code: "885.1", nom: "Télémesure et transmission TP", coefficient: 1.5 },
-        { code: "885.2", nom: "Télémesure et transmission écrit", coefficient: 1.5 },
+        { code: "885.2", nom: "Télémesure et transmission écrit", coefficient: 1.5 }
     ],
     ISHM: [
         { code: "873.1", nom: "Simulation des systèmes automatiques écrit", coefficient: 1.5 },
@@ -30,7 +43,7 @@ const parcoursNotes = {
         { code: "874.6", nom: "Représentation d'état TP", coefficient: 0.5 },
         { code: "882.1", nom: "Supervision industrielle", coefficient: 1.5 },
         { code: "882.2", nom: "Supervision réseau informatique écrit", coefficient: 0.5 },
-        { code: "882.3", nom: "Supervision réseau informatique TP", coefficient: 1 },
+        { code: "882.3", nom: "Supervision réseau informatique TP", coefficient: 1 }
     ],
     IMEEN: [
         { code: "861.1", nom: "Biomasse/Biogaz", coefficient: 1.5 },
@@ -42,7 +55,7 @@ const parcoursNotes = {
         { code: "862.5", nom: "BIM écrit", coefficient: 0.75 },
         { code: "862.6", nom: "BIM TP", coefficient: 0.75 },
         { code: "863.1", nom: "Technologie des énergies renouvelables", coefficient: 3 },
-        { code: "863.2", nom: "Métrologie et caméra thermique", coefficient: 3 },
+        { code: "863.2", nom: "Métrologie et caméra thermique", coefficient: 3 }
     ]
 };
 
@@ -56,7 +69,7 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-// ➕ Ajouter une note manuellement (pour "Autre" ou si note personnalisée)
+// ➕ Ajouter une note manuellement
 router.post('/', auth, async (req, res) => {
     const { code, nom, note, coefficient } = req.body;
 
@@ -93,7 +106,7 @@ router.put('/:id', auth, async (req, res) => {
     }
 });
 
-// 🔄 Initialisation automatique des notes selon parcours (à appeler côté frontend au 1er chargement)
+// 🔄 Initialisation automatique des notes (avec matières communes)
 router.post('/init', auth, async (req, res) => {
     try {
         const utilisateur = await Utilisateur.findById(req.utilisateur.id);
@@ -106,14 +119,12 @@ router.post('/init', auth, async (req, res) => {
             return res.json({ message: "Pas de notes automatiques pour ce parcours." });
         }
 
-        // Vérifie si déjà initialisé
         const deja = await Note.findOne({ utilisateurId: utilisateur.id });
         if (deja) {
             return res.json({ message: "Notes déjà initialisées." });
         }
 
-        // Crée les notes avec note = 0
-        const notes = notesParcours.map(n => ({
+        const notes = [...commun, ...notesParcours].map(n => ({
             code: n.code,
             nom: n.nom,
             coefficient: n.coefficient,
