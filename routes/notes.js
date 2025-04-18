@@ -4,7 +4,7 @@ const Note = require('../models/Note');
 const Utilisateur = require('../models/Utilisateur');
 const auth = require('../middleware/auth');
 
-// 🎯 Données des notes communes à tous les parcours
+// 🎯 Matières communes à tous les parcours
 const commun = [
     { code: "801.1", nom: "Rapports de projet", coefficient: 3 },
     { code: "801.2", nom: "Présentations de projet", coefficient: 3 },
@@ -18,60 +18,52 @@ const commun = [
     { code: "872.2.2", nom: "Réseaux : TP", coefficient: 1 }
 ];
 
+// 📚 Parcours avec matières spécifiques ET communes intégrées
 const parcoursNotes = {
-    MTI: [ /* ... comme avant ... */ ],
-    ISHM: [ /* ... comme avant ... */ ],
-    IMEEN: [ /* ... comme avant ... */ ]
+    MTI: [
+        ...commun,
+        { code: "881.1", nom: "Accélération matérielle", coefficient: 1.5 },
+        { code: "881.2", nom: "TP Mise en œuvre", coefficient: 1.5 },
+        { code: "882.1", nom: "Supervision industrielle", coefficient: 1.5 },
+        { code: "882.2", nom: "Supervision réseau informatique écrit", coefficient: 0.5 },
+        { code: "882.3", nom: "Supervision réseau informatique TP", coefficient: 1 },
+        { code: "883.1", nom: "Commande de systèmes numériques écrit 1", coefficient: 1.5 },
+        { code: "883.2", nom: "Commande de systèmes numériques écrit 2", coefficient: 1.5 },
+        { code: "884.1", nom: "Outils de mise en forme de l'information", coefficient: 1.5 },
+        { code: "884.2", nom: "Travaux Pratiques", coefficient: 1.5 },
+        { code: "885.1", nom: "Télémesure et transmission TP", coefficient: 1.5 },
+        { code: "885.2", nom: "Télémesure et transmission écrit", coefficient: 1.5 }
+    ],
+    ISHM: [
+        ...commun,
+        { code: "873.1", nom: "Simulation des systèmes automatiques écrit", coefficient: 1.5 },
+        { code: "873.2", nom: "Simulation des systèmes automatiques TP", coefficient: 1.5 },
+        { code: "874.1", nom: "Traitement numérique du signal écrit", coefficient: 3 },
+        { code: "874.2", nom: "Traitement numérique du signal TP", coefficient: 1.5 },
+        { code: "874.3", nom: "Méthode régulation numérique écrit", coefficient: 1.75 },
+        { code: "874.4", nom: "Méthode régulation numérique TP", coefficient: 0.5 },
+        { code: "874.5", nom: "Représentation d'état écrit", coefficient: 1.75 },
+        { code: "874.6", nom: "Représentation d'état TP", coefficient: 0.5 },
+        { code: "882.1", nom: "Supervision industrielle", coefficient: 1.5 },
+        { code: "882.2", nom: "Supervision réseau informatique écrit", coefficient: 0.5 },
+        { code: "882.3", nom: "Supervision réseau informatique TP", coefficient: 1 }
+    ],
+    IMEEN: [
+        ...commun,
+        { code: "861.1", nom: "Biomasse/Biogaz", coefficient: 1.5 },
+        { code: "861.2", nom: "Bois énergie déchet", coefficient: 1.5 },
+        { code: "862.1", nom: "Modélisation thermique du bâtiment écrit", coefficient: 0.75 },
+        { code: "862.2", nom: "Modélisation thermique du bâtiment TP", coefficient: 0.75 },
+        { code: "862.3", nom: "Étude des matériaux", coefficient: 1.5 },
+        { code: "862.4", nom: "Chauffage ventilation climatisation", coefficient: 1.5 },
+        { code: "862.5", nom: "BIM écrit", coefficient: 0.75 },
+        { code: "862.6", nom: "BIM TP", coefficient: 0.75 },
+        { code: "863.1", nom: "Technologie des énergies renouvelables", coefficient: 3 },
+        { code: "863.2", nom: "Métrologie et caméra thermique", coefficient: 3 }
+    ]
 };
 
-// 📥 Récupérer toutes les notes de l’utilisateur
-router.get('/', auth, async (req, res) => {
-    try {
-        const notes = await Note.find({ utilisateurId: req.utilisateur.id });
-        res.json(notes);
-    } catch (err) {
-        res.status(500).json({ message: 'Erreur serveur.' });
-    }
-});
-
-// ➕ Ajouter une note manuellement
-router.post('/', auth, async (req, res) => {
-    const { code, nom, note, coefficient } = req.body;
-
-    try {
-        const nouvelleNote = new Note({
-            code,
-            nom,
-            note,
-            coefficient,
-            utilisateurId: req.utilisateur.id
-        });
-
-        await nouvelleNote.save();
-        res.status(201).json({ message: 'Note ajoutée.', note: nouvelleNote });
-    } catch (err) {
-        res.status(500).json({ message: 'Erreur serveur.' });
-    }
-});
-
-// 🔁 Modifier une note
-router.put('/:id', auth, async (req, res) => {
-    try {
-        const note = await Note.findOneAndUpdate(
-            { _id: req.params.id, utilisateurId: req.utilisateur.id },
-            req.body,
-            { new: true }
-        );
-
-        if (!note) return res.status(404).json({ message: 'Note introuvable.' });
-
-        res.json({ message: 'Note modifiée.', note });
-    } catch (err) {
-        res.status(500).json({ message: 'Erreur serveur.' });
-    }
-});
-
-// 🔄 Initialisation automatique des notes
+// 🔁 Initialisation automatique des notes
 router.post('/init', auth, async (req, res) => {
     try {
         const utilisateur = await Utilisateur.findById(req.utilisateur.id);
@@ -89,8 +81,7 @@ router.post('/init', auth, async (req, res) => {
             return res.json({ message: "Notes déjà initialisées." });
         }
 
-        // ✅ Fusion des matières communes + spécifiques au parcours
-        const notes = [...commun, ...notesParcours].map(n => ({
+        const notes = notesParcours.map(n => ({
             code: n.code,
             nom: n.nom,
             coefficient: n.coefficient,
