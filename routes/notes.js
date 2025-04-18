@@ -113,4 +113,28 @@ router.post('/init', auth, async (req, res) => {
     }
 });
 
+// ✅ PUT /api/notes/:id — mise à jour d'une note
+router.put('/:id', auth, async (req, res) => {
+    try {
+        const note = await Note.findOne({
+            _id: req.params.id,
+            utilisateurId: req.utilisateur.id
+        });
+
+        if (!note) {
+            return res.status(404).json({ message: "Note introuvable." });
+        }
+
+        if (typeof req.body.note === "number") {
+            note.note = req.body.note;
+        }
+
+        await note.save();
+        res.json({ message: "Note mise à jour." });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Erreur serveur." });
+    }
+});
+
 module.exports = router;
