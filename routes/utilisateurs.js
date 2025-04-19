@@ -5,11 +5,23 @@ const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
 
-// ▶ INSCRIPTION avec hash
+// ▶ INSCRIPTION avec hash et vérification des champs
 router.post('/inscription', async (req, res) => {
     console.log(">>> [POST] /inscription", req.body);
 
     const { prenom, nom, email, motDePasse, parcours } = req.body;
+
+    // 🔒 Vérification des champs manquants
+    const champsManquants = [];
+    if (!prenom) champsManquants.push("prenom");
+    if (!nom) champsManquants.push("nom");
+    if (!email) champsManquants.push("email");
+    if (!motDePasse) champsManquants.push("motDePasse");
+    if (!parcours || parcours === "Choisissez votre parcours") champsManquants.push("parcours");
+
+    if (champsManquants.length > 0) {
+        return res.json({ message: "Veuillez remplir : " + champsManquants.join(", ") });
+    }
 
     try {
         const existe = await Utilisateur.findOne({ email });
