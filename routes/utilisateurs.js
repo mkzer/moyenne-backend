@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Utilisateur = require('../models/Utilisateur');
+const Note = require('../models/Note');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 
 // ▶ INSCRIPTION avec hash et vérification des champs
 router.post('/inscription', async (req, res) => {
@@ -23,18 +25,25 @@ router.post('/inscription', async (req, res) => {
         return res.status(400).json({ message: "Veuillez remplir : " + champsManquants.join(", ") });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Format d'email invalide." });
+    }
+
     try {
         const existe = await Utilisateur.findOne({ email });
         if (existe) return res.status(400).json({ message: 'Email déjà utilisé.' });
 
         const hash = await bcrypt.hash(motDePasse, 10);
+        const securityKey = uuidv4();
 
         const utilisateur = new Utilisateur({
             prenom,
             nom,
             email,
             motDePasse: hash,
-            parcours
+            parcours,
+            securityKey
         });
 
         await utilisateur.save();
@@ -73,7 +82,8 @@ router.post('/connexion', async (req, res) => {
                 nom: utilisateur.nom,
                 email: utilisateur.email,
                 parcours: utilisateur.parcours,
-                isAdmin: utilisateur.isAdmin
+                isAdmin: utilisateur.isAdmin,
+                securityKey: utilisateur.securityKey
             }
         });
     } catch (err) {
@@ -91,6 +101,30 @@ router.get('/', auth, async (req, res) => {
     try {
         const utilisateurs = await Utilisateur.find().select("-motDePasse");
         res.json(utilisateurs);
+    } catch (err) {
+        res.status(500).json({ message: 'Erreur serveur.' });
+    }
+});
+
+// ▶ PROFIL : informations de l'utilisateur connecté
+router.get('/me', auth, async (req, res) => {
+    try {
+        const utilisateur = await Utilisateur.findById(req.utilisateur.id).select('-motDePasse');
+        if (!utilisateur) {
+            return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+        }
+        res.json(utilisateur);
+    } catch (err) {
+        res.status(500).json({ message: 'Erreur serveur.' });
+    }
+});
+
+// ▶ SUPPRESSION DE COMPTE
+router.delete('/me', auth, async (req, res) => {
+    try {
+        await Utilisateur.findByIdAndDelete(req.utilisateur.id);
+        await Note.deleteMany({ utilisateurId: req.utilisateur.id });
+        res.json({ message: 'Compte supprimé.' });
     } catch (err) {
         res.status(500).json({ message: 'Erreur serveur.' });
     }

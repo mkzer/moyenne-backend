@@ -25,6 +25,11 @@ const utilisateurSchema = new mongoose.Schema({
     isAdmin: {
         type: Boolean,
         default: false,
+    },
+    securityKey: {
+        type: String,
+        required: true,
+        unique: true
     }
 });
 
