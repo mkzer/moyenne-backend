@@ -20,7 +20,7 @@ router.post('/inscription', async (req, res) => {
     if (!parcours || parcours === "Choisissez votre parcours") champsManquants.push("parcours");
 
     if (champsManquants.length > 0) {
-        return res.json({ message: "Veuillez remplir : " + champsManquants.join(", ") });
+        return res.status(400).json({ message: "Veuillez remplir : " + champsManquants.join(", ") });
     }
 
     try {
