@@ -126,7 +126,7 @@ router.put('/:id', auth, async (req, res) => {
         }
 
         if (typeof req.body.note === "number") {
-            note.note = req.body.note;
+            note.note = Math.round(req.body.note * 100) / 100;
         }
 
         await note.save();

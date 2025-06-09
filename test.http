@@ -47,3 +47,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZmZmNDVmZ
   "coefficient": 1.5
 }
 
+### 👤 PROFIL UTILISATEUR
+GET http://localhost:5000/api/utilisateurs/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZmZmNDVmZDFiYWZmMjA2ODU1OTY3YiIsImlzQWRtaW4iOmZhbHNlLCJpYXQiOjE3NDQ4Mjc5NjIsImV4cCI6MTc0NDgzNTE2Mn0.PT41NjH1vLIjLI2mn-jqmTaq8aEaPNSeTcP2TW2DYt0
+
+### ❌ SUPPRIMER MON COMPTE
+DELETE http://localhost:5000/api/utilisateurs/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3ZmZmNDVmZDFiYWZmMjA2ODU1OTY3YiIsImlzQWRtaW4iOmZhbHNlLCJpYXQiOjE3NDQ4Mjc5NjIsImV4cCI6MTc0NDgzNTE2Mn0.PT41NjH1vLIjLI2mn-jqmTaq8aEaPNSeTcP2TW2DYt0
+
