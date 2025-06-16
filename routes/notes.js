@@ -33,35 +33,35 @@ const parcoursNotes = {
         { code: "885.2", nom: "Télémesure et transmission écrit", coefficient: 1.5 }
     ],
     ISHM: [
-        ...commun,
-        { code: "873.1", nom: "Simulation des systèmes automatiques écrit", coefficient: 1.5 },
-        { code: "873.2", nom: "Simulation des systèmes automatiques TP", coefficient: 1.5 },
-        { code: "874.1", nom: "Traitement numérique du signal écrit", coefficient: 3 },
-        { code: "874.2", nom: "Traitement numérique du signal TP", coefficient: 1.5 },
-        { code: "874.3", nom: "Méthode régulation numérique écrit", coefficient: 1.75 },
-        { code: "874.4", nom: "Méthode régulation numérique TP", coefficient: 0.5 },
-        { code: "874.5", nom: "Représentation d'état écrit", coefficient: 1.75 },
-        { code: "874.6", nom: "Représentation d'état TP", coefficient: 0.5 },
-        { code: "882.1", nom: "Supervision industrielle", coefficient: 1.5 },
-        { code: "882.2", nom: "Supervision réseau informatique écrit", coefficient: 0.5 },
-        { code: "882.3", nom: "Supervision réseau informatique TP", coefficient: 1 }
+        …commun,
+    { code: "873.1", nom: "Simulation des systèmes automatiques écrit", coefficient: 1.5 },
+    { code: "873.2", nom: "Simulation des systèmes automatiques TP", coefficient: 1.5 },
+    { code: "874.1", nom: "Traitement numérique du signal écrit", coefficient: 3 },
+    { code: "874.2", nom: "Traitement numérique du signal TP", coefficient: 1.5 },
+    { code: "874.3", nom: "Méthode régulation numérique écrit", coefficient: 1.75 },
+    { code: "874.4", nom: "Méthode régulation numérique TP", coefficient: 0.5 },
+    { code: "874.5", nom: "Représentation d'état écrit", coefficient: 1.75 },
+    { code: "874.6", nom: "Représentation d'état TP", coefficient: 0.5 },
+    { code: "882.1", nom: "Supervision industrielle", coefficient: 1.5 },
+    { code: "882.2", nom: "Supervision réseau informatique écrit", coefficient: 0.5 },
+    { code: "882.3", nom: "Supervision réseau informatique TP", coefficient: 1 }
     ],
-    IMEEN: [
-        ...commun,
-        { code: "861.1", nom: "Biomasse/Biogaz", coefficient: 1.5 },
-        { code: "861.2", nom: "Bois énergie déchet", coefficient: 1.5 },
-        { code: "862.1", nom: "Modélisation thermique du bâtiment écrit", coefficient: 0.75 },
-        { code: "862.2", nom: "Modélisation thermique du bâtiment TP", coefficient: 0.75 },
-        { code: "862.3", nom: "Étude des matériaux", coefficient: 1.5 },
-        { code: "862.4", nom: "Chauffage ventilation climatisation", coefficient: 1.5 },
-        { code: "862.5", nom: "BIM écrit", coefficient: 0.75 },
-        { code: "862.6", nom: "BIM TP", coefficient: 0.75 },
-        { code: "863.1", nom: "Technologie des énergies renouvelables", coefficient: 3 },
-        { code: "863.2", nom: "Métrologie et caméra thermique", coefficient: 3 }
-    ]
+IMEEN: [
+        …commun,
+    { code: "861.1", nom: "Biomasse/Biogaz", coefficient: 1.5 },
+    { code: "861.2", nom: "Bois énergie déchet", coefficient: 1.5 },
+    { code: "862.1", nom: "Modélisation thermique du bâtiment écrit", coefficient: 0.75 },
+    { code: "862.2", nom: "Modélisation thermique du bâtiment TP", coefficient: 0.75 },
+    { code: "862.3", nom: "Étude des matériaux", coefficient: 1.5 },
+    { code: "862.4", nom: "Chauffage ventilation climatisation", coefficient: 1.5 },
+    { code: "862.5", nom: "BIM écrit", coefficient: 0.75 },
+    { code: "862.6", nom: "BIM TP", coefficient: 0.75 },
+    { code: "863.1", nom: "Technologie des énergies renouvelables", coefficient: 3 },
+    { code: "863.2", nom: "Métrologie et caméra thermique", coefficient: 3 }
+]
 };
 
-// ✅ GET /api/notes — récupérer les notes de l'utilisateur connecté
+// GET /api/notes — récupérer les notes de l'utilisateur connecté
 router.get('/', auth, async (req, res) => {
     try {
         const notes = await Note.find({ utilisateurId: req.utilisateur.id });
@@ -72,7 +72,26 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-// 🔁 POST /api/notes/init — Initialisation automatique des notes
+// POST /api/notes — création d’une note manuelle
+router.post('/', auth, async (req, res) => {
+    try {
+        const { code, nom, note, coefficient } = req.body;
+        const nouvelle = new Note({
+            code,
+            nom,
+            note,
+            coefficient,
+            utilisateurId: req.utilisateur.id
+        });
+        await nouvelle.save();
+        res.status(201).json(nouvelle);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Erreur création note." });
+    }
+});
+
+// POST /api/notes/init — Initialisation automatique des notes
 router.post('/init', auth, async (req, res) => {
     try {
         const utilisateur = await Utilisateur.findById(req.utilisateur.id);
@@ -85,9 +104,7 @@ router.post('/init', auth, async (req, res) => {
             "M1 EEA IMEEN": "IMEEN"
         };
         const codeParcours = mapping[parcours] || parcours;
-
         const notesParcours = parcoursNotes[codeParcours];
-
         if (!notesParcours) {
             return res.json({ message: "Pas de notes automatiques pour ce parcours." });
         }
@@ -113,7 +130,7 @@ router.post('/init', auth, async (req, res) => {
     }
 });
 
-// ✅ PUT /api/notes/:id — mise à jour d'une note
+// PUT /api/notes/:id — mise à jour d'une note
 router.put('/:id', auth, async (req, res) => {
     try {
         const note = await Note.findOne({
