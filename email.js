@@ -18,7 +18,7 @@ const transporter = nodemailer.createTransport({
  * @param {string} key – securityKey (UUID)
  */
 async function sendResetEmail(to, key) {
-    const resetUrl = `https://ton-frontend/reset.html?key=${key}`;
+    const resetUrl = `https://moyenne-frontend.vercel.app/reset.html?key=${key}`;
     const info = await transporter.sendMail({
         from: `"Gestion Moyennes" <${process.env.GMAIL_USER}>`,
         to,
