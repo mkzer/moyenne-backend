@@ -1,9 +1,12 @@
+// routes/notes.js
+
 const express = require('express');
 const router = express.Router();
 const Note = require('../models/Note');
 const Utilisateur = require('../models/Utilisateur');
 const auth = require('../middleware/auth');
 
+// Définitions des UE communes et par parcours (inchangées)
 const commun = [
     { code: "801.1", nom: "Rapports de projet", coefficient: 3 },
     { code: "801.2", nom: "Présentations de projet", coefficient: 3 },
@@ -61,7 +64,7 @@ const parcoursNotes = {
     ]
 };
 
-// Récupérer les notes de l’utilisateur connecté
+/** Récupérer les notes de l’utilisateur connecté **/
 router.get('/', auth, async (req, res) => {
     try {
         const notes = await Note.find({ utilisateurId: req.utilisateur.id });
@@ -72,7 +75,7 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-// Créer une note manuelle
+/** Créer une note manuelle **/
 router.post('/', auth, async (req, res) => {
     try {
         const { code, nom, note, coefficient } = req.body;
@@ -91,7 +94,7 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-// Initialiser automatiquement les notes selon le parcours
+/** Initialiser automatiquement les notes selon le parcours **/
 router.post('/init', auth, async (req, res) => {
     try {
         const utilisateur = await Utilisateur.findById(req.utilisateur.id);
@@ -129,7 +132,7 @@ router.post('/init', auth, async (req, res) => {
     }
 });
 
-// Mettre à jour une note
+/** Mettre à jour une note **/
 router.put('/:id', auth, async (req, res) => {
     try {
         const note = await Note.findOne({
@@ -150,7 +153,7 @@ router.put('/:id', auth, async (req, res) => {
     }
 });
 
-// ▶ GET /api/notes/ranks — calcul des rangs
+/** ▶ GET /api/notes/ranks — calcul des rangs **/
 router.get('/ranks', auth, async (req, res) => {
     try {
         const userId = req.utilisateur.id;
@@ -158,18 +161,21 @@ router.get('/ranks', auth, async (req, res) => {
         if (!utilisateur) return res.status(404).json({ message: "Utilisateur non trouvé." });
         const parcours = utilisateur.parcours;
 
-        // Récupère toutes les notes, peuplement du parcours
+        // Récupère toutes les notes avec leur utilisateur
         const allNotes = await Note.find().populate('utilisateurId', 'parcours');
 
-        // Filtre les notes de l'utilisateur
-        const userNotes = allNotes.filter(n =>
+        // Filtre les notes orphelines ou sans parcours
+        const validNotes = allNotes.filter(n => n.utilisateurId && n.utilisateurId.parcours);
+
+        // Notes de l’utilisateur
+        const userNotes = validNotes.filter(n =>
             n.utilisateurId._id.equals(userId)
         );
 
-        // Calcule le rang de chaque note EC
+        // Calcule le rang de chaque EC
         const noteRanks = {};
         for (const note of userNotes) {
-            const same = allNotes
+            const same = validNotes
                 .filter(n =>
                     n.code === note.code &&
                     n.utilisateurId.parcours === parcours
@@ -179,27 +185,31 @@ router.get('/ranks', auth, async (req, res) => {
             noteRanks[note._id] = same.indexOf(note.note) + 1;
         }
 
-        // Calcule les moyennes générales par étudiant du parcours
-        const mapByUser = allNotes
+        // Moyenne générale par étudiant du même parcours
+        const mapByUser = validNotes
             .filter(n => n.utilisateurId.parcours === parcours)
             .reduce((acc, n) => {
                 const uid = n.utilisateurId._id.toString();
-                acc[uid] = acc[uid] || { sum: 0, coef: 0 };
+                if (!acc[uid]) acc[uid] = { sum: 0, coef: 0 };
                 acc[uid].sum += n.note * n.coefficient;
                 acc[uid].coef += n.coefficient;
                 return acc;
             }, {});
-        const averages = Object.entries(mapByUser).map(([uid, { sum, coef }]) => ({
-            uid,
-            avg: coef > 0 ? sum / coef : 0
-        }));
-        averages.sort((a, b) => b.avg - a.avg);
+
+        const averages = Object.entries(mapByUser)
+            .map(([uid, { sum, coef }]) => ({
+                uid,
+                avg: coef > 0 ? sum / coef : 0
+            }))
+            .sort((a, b) => b.avg - a.avg);
+
         const generalRank = averages.findIndex(a => a.uid === userId) + 1;
+        const totalStudents = averages.length;
 
         res.json({
             noteRanks,
             generalRank,
-            totalStudents: averages.length
+            totalStudents
         });
     } catch (err) {
         console.error("Erreur GET /notes/ranks :", err);
