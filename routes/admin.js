@@ -2,56 +2,90 @@
 const express = require("express");
 const router = express.Router();
 const Note = require("../models/Note");
-const Utilisateur = require("../models/Utilisateur");
+const auth = require("../middleware/auth");
+const admin = require("../middleware/admin");
+
+// Appliquer auth + admin à toutes les routes de ce router
+router.use(auth, admin);
 
 /**
  * GET /api/admin/classement
  * Query params:
- *   - type = "ue" or "general"
- *   - code (only if type=ue): code de l'EC (ex: "871.1")
- *   - parcours (ex: "M1 EEA MTI")
+ *   - type = "ue" | "general"   (default: "general")
+ *   - parcours (ex: "M1 EEA MTI") – requis
+ *   - code (ex: "871.1")         – requis si type=ue
  */
 router.get("/classement", async (req, res) => {
     try {
-        const { type = "general", code, parcours } = req.query;
-        // Filtrer les notes du parcours demandé
-        const all = await Note.find()
+        const { type = "general", parcours, code } = req.query;
+        if (!parcours) {
+            return res.status(400).json({ message: "Parcours requis." });
+        }
+
+        // Charger toutes les notes avec le parcours de chaque utilisateur
+        const allNotes = await Note.find()
             .populate("utilisateurId", "prenom nom parcours");
-        const valid = all.filter(n => n.utilisateurId.parcours === parcours);
+
+        // Ne conserver que celles du parcours demandé
+        const notesParcours = allNotes.filter(n =>
+            n.utilisateurId &&
+            n.utilisateurId.parcours === parcours
+        );
 
         if (type === "ue") {
-            if (!code) return res.status(400).json({ message: "Il faut un code d'UE." });
-            // Classement pour cette UE
-            const byUser = {};
-            valid
+            if (!code) {
+                return res.status(400).json({ message: "Code d'UE requis pour type=ue." });
+            }
+            // Regrouper la meilleure note par utilisateur pour cette UE
+            const perUser = {};
+            notesParcours
                 .filter(n => n.code === code)
                 .forEach(n => {
                     const uid = n.utilisateurId._id.toString();
-                    if (!byUser[uid]) byUser[uid] = { prenom: n.utilisateurId.prenom, nom: n.utilisateurId.nom, note: n.note };
+                    // garder la note la plus élevée si plusieurs entrées
+                    if (!perUser[uid] || n.note > perUser[uid].note) {
+                        perUser[uid] = {
+                            prenom: n.utilisateurId.prenom,
+                            nom: n.utilisateurId.nom,
+                            note: n.note
+                        };
+                    }
                 });
-            const arr = Object.values(byUser).sort((a, b) => b.note - a.note);
-            return res.json(arr);
+            // Trier par note décroissante
+            const classementUE = Object.values(perUser)
+                .sort((a, b) => b.note - a.note);
+            return res.json(classementUE);
         }
 
-        // === général ===
-        const mapGen = valid.reduce((acc, n) => {
+        // === Classement général ===
+        // Calculer moyennes pondérées
+        const mapGen = notesParcours.reduce((acc, n) => {
             const uid = n.utilisateurId._id.toString();
-            if (!acc[uid]) acc[uid] = { prenom: n.utilisateurId.prenom, nom: n.utilisateurId.nom, sum: 0, coef: 0 };
+            if (!acc[uid]) {
+                acc[uid] = {
+                    prenom: n.utilisateurId.prenom,
+                    nom: n.utilisateurId.nom,
+                    sum: 0,
+                    coef: 0
+                };
+            }
             acc[uid].sum += n.note * n.coefficient;
             acc[uid].coef += n.coefficient;
             return acc;
         }, {});
-        const gens = Object.entries(mapGen)
-            .map(([_, v]) => ({
-                prenom: v.prenom,
-                nom: v.nom,
-                moyenne: v.coef > 0 ? v.sum / v.coef : 0
+
+        // Construire le tableau des moyennes
+        const classementGen = Object.values(mapGen)
+            .map(u => ({
+                prenom: u.prenom,
+                nom: u.nom,
+                moyenne: u.coef > 0 ? parseFloat((u.sum / u.coef).toFixed(2)) : 0
             }))
             .sort((a, b) => b.moyenne - a.moyenne);
-        res.json(gens);
 
+        return res.json(classementGen);
     } catch (err) {
-        console.error(err);
+        console.error("Erreur GET /api/admin/classement :", err);
         res.status(500).json({ message: "Erreur serveur." });
     }
 });
@@ -59,25 +93,25 @@ router.get("/classement", async (req, res) => {
 /**
  * GET /api/admin/histogram
  * Query params:
- *   - code: code de l'EC (ex: "871.1")
- *   - parcours: parcours (ex: "M1 EEA ISHM")
- * Renvoie un tableau de notes pour tracer un histogramme.
+ *   - parcours (ex: "M1 EEA ISHM") – requis
+ *   - code     (ex: "871.1")         – requis
+ * Renvoie un array de notes pour l’UE donnée et le parcours donné.
  */
 router.get("/histogram", async (req, res) => {
     try {
-        const { code, parcours } = req.query;
-        if (!code || !parcours) return res.status(400).json({ message: "Code et parcours requis." });
-
-        const all = await Note.find()
-            .populate("utilisateurId", "parcours")
-            .where("code").equals(code)
-            .where("utilisateurId.parcours").equals(parcours);
-
-        // On renvoie juste la liste des notes numériques
-        const data = all.map(n => n.note);
-        res.json(data);
+        const { parcours, code } = req.query;
+        if (!parcours || !code) {
+            return res.status(400).json({ message: "Parcours et code requis." });
+        }
+        // Charger et filtrer
+        const notes = await Note.find({ code })
+            .populate("utilisateurId", "parcours");
+        const data = notes
+            .filter(n => n.utilisateurId && n.utilisateurId.parcours === parcours)
+            .map(n => n.note);
+        return res.json(data);
     } catch (err) {
-        console.error(err);
+        console.error("Erreur GET /api/admin/histogram :", err);
         res.status(500).json({ message: "Erreur serveur." });
     }
 });
