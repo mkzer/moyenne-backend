@@ -16,12 +16,19 @@ mongoose
     .then(() => console.log("✅ Connexion MongoDB réussie"))
     .catch((err) => console.error("❌ Erreur MongoDB :", err));
 
-// Routes (chemins corrigés)
+// Routes publiques
 const utilisateurRoutes = require("./routes/utilisateurs");
 const noteRoutes = require("./routes/notes");
-
 app.use("/api/utilisateurs", utilisateurRoutes);
 app.use("/api/notes", noteRoutes);
+
+// Middleware d’authentification et d’autorisation
+const authMiddleware = require("./middleware/auth");
+const adminMiddleware = require("./middleware/admin");
+
+// Routes admin (protégées)
+const adminRoutes = require("./routes/admin");
+app.use("/api/admin", authMiddleware, adminMiddleware, adminRoutes);
 
 // Lancement du serveur
 app.listen(PORT, () => {
