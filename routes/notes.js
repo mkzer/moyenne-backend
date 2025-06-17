@@ -1,11 +1,13 @@
+// routes/notes.js
+
 const express = require('express');
 const router = express.Router();
 const Note = require('../models/Note');
 const Utilisateur = require('../models/Utilisateur');
 const auth = require('../middleware/auth');
+const mongoose = require('mongoose');
 
-
-// Définitions des UE communes et par parcours (inchangées)
+// Définitions des EC communes et par parcours
 const commun = [
     { code: "801.1", nom: "Rapports de projet", coefficient: 3 },
     { code: "801.2", nom: "Présentations de projet", coefficient: 3 },
@@ -63,18 +65,18 @@ const parcoursNotes = {
     ]
 };
 
-/** Récupérer les notes de l’utilisateur connecté **/
+// ▶ GET /api/notes — récupérer toutes les notes de l’utilisateur
 router.get('/', auth, async (req, res) => {
     try {
         const notes = await Note.find({ utilisateurId: req.utilisateur.id });
         res.json(notes);
     } catch (err) {
-        console.error(err);
+        console.error("GET /api/notes :", err);
         res.status(500).json({ message: "Erreur serveur." });
     }
 });
 
-/** Créer une note manuelle **/
+// ▶ POST /api/notes — ajouter une note manuelle
 router.post('/', auth, async (req, res) => {
     try {
         const { code, nom, note, coefficient } = req.body;
@@ -88,50 +90,55 @@ router.post('/', auth, async (req, res) => {
         await nouvelle.save();
         res.status(201).json(nouvelle);
     } catch (err) {
-        console.error(err);
+        console.error("POST /api/notes :", err);
         res.status(500).json({ message: "Erreur création note." });
     }
 });
 
-/** Initialiser automatiquement les notes selon le parcours **/
+// ▶ POST /api/notes/init — initialiser automatiquement selon le parcours
 router.post('/init', auth, async (req, res) => {
     try {
         const utilisateur = await Utilisateur.findById(req.utilisateur.id);
-        if (!utilisateur) return res.status(404).json({ message: "Utilisateur non trouvé." });
+        if (!utilisateur) {
+            return res.status(404).json({ message: "Utilisateur non trouvé." });
+        }
 
         const mapping = {
             "M1 EEA MTI": "MTI",
             "M1 EEA ISHM": "ISHM",
             "M1 EEA IMEEN": "IMEEN"
         };
-        const codeParcours = mapping[utilisateur.parcours?.trim().toUpperCase()] || utilisateur.parcours;
+        const codeParcours =
+            mapping[utilisateur.parcours?.trim().toUpperCase()] ||
+            utilisateur.parcours;
         const notesParcours = parcoursNotes[codeParcours];
         if (!notesParcours) {
             return res.json({ message: "Pas de notes automatiques pour ce parcours." });
         }
 
+        // Empêche réinitialisation multiple
         const deja = await Note.findOne({ utilisateurId: utilisateur.id });
         if (deja) {
             return res.json({ message: "Notes déjà initialisées." });
         }
 
-        const notes = notesParcours.map(n => ({
+        // Création en base
+        const batch = notesParcours.map(n => ({
             code: n.code,
             nom: n.nom,
             coefficient: n.coefficient,
             note: 0,
             utilisateurId: utilisateur.id
         }));
-
-        await Note.insertMany(notes);
+        await Note.insertMany(batch);
         res.status(201).json({ message: "Notes initialisées avec succès." });
     } catch (err) {
-        console.error(err);
+        console.error("POST /api/notes/init :", err);
         res.status(500).json({ message: "Erreur serveur." });
     }
 });
 
-/** Mettre à jour une note **/
+// ▶ PUT /api/notes/:id — mettre à jour une note existante
 router.put('/:id', auth, async (req, res) => {
     try {
         const note = await Note.findOne({
@@ -147,35 +154,38 @@ router.put('/:id', auth, async (req, res) => {
         await note.save();
         res.json({ message: "Note mise à jour." });
     } catch (err) {
-        console.error(err);
+        console.error("PUT /api/notes/:id :", err);
         res.status(500).json({ message: "Erreur serveur." });
     }
 });
 
-/** ▶ GET /api/notes/ranks — calcul des rangs **/
+// ▶ GET /api/notes/ranks — calcul des rangs EC et de la moyenne générale
 router.get('/ranks', auth, async (req, res) => {
     try {
         const userId = req.utilisateur.id;
         const utilisateur = await Utilisateur.findById(userId);
-        if (!utilisateur) return res.status(404).json({ message: "Utilisateur non trouvé." });
+        if (!utilisateur) {
+            return res.status(404).json({ message: "Utilisateur non trouvé." });
+        }
         const parcours = utilisateur.parcours;
 
-        // Récupère toutes les notes + parcours utilisateur
+        // 1) Toutes les notes avec leur parcours user
         const allNotes = await Note.find().populate('utilisateurId', 'parcours');
 
-        // On garde seulement celles avec un utilisateur valide et un parcours défini
+        // 2) Filtre seulement celles avec un utilisateur valide et un parcours non vide
         const validNotes = allNotes.filter(n =>
+            n.utilisateurId instanceof mongoose.Types.ObjectId === false &&
             n.utilisateurId &&
             typeof n.utilisateurId.parcours === 'string' &&
             n.utilisateurId.parcours.trim() !== ''
         );
 
-        // Notes propres à l’utilisateur connecté
+        // 3) Isole les notes de l’utilisateur connecté
         const userNotes = validNotes.filter(n =>
-            n.utilisateurId._id.equals(userId)
+            n.utilisateurId._id.toString() === userId.toString()
         );
 
-        // Calcule le rang de chaque EC pour l'utilisateur
+        // 4) Calcul du rang EC
         const noteRanks = {};
         for (const note of userNotes) {
             const sameEC = validNotes
@@ -188,7 +198,7 @@ router.get('/ranks', auth, async (req, res) => {
             noteRanks[note._id] = sameEC.indexOf(note.note) + 1;
         }
 
-        // Calcul des moyennes générales par étudiant du même parcours
+        // 5) Calcul moyennes générales par étudiant du parcours
         const mapByUser = validNotes
             .filter(n => n.utilisateurId.parcours === parcours)
             .reduce((acc, n) => {
@@ -199,7 +209,6 @@ router.get('/ranks', auth, async (req, res) => {
                 return acc;
             }, {});
 
-        // On construit un tableau [{uid, avg},…] puis on trie
         const averages = Object.entries(mapByUser)
             .map(([uid, { sum, coef }]) => ({
                 uid,
@@ -210,9 +219,9 @@ router.get('/ranks', auth, async (req, res) => {
         const generalRank = averages.findIndex(a => a.uid === userId) + 1;
         const totalStudents = averages.length;
 
-        return res.json({ noteRanks, generalRank, totalStudents });
+        res.json({ noteRanks, generalRank, totalStudents });
     } catch (err) {
-        console.error("Erreur GET /notes/ranks :", err);
+        console.error("GET /api/notes/ranks :", err);
         res.status(500).json({ message: "Erreur serveur." });
     }
 });
