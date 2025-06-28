@@ -16,12 +16,15 @@ mongoose
     .then(() => console.log("✅ Connexion MongoDB réussie"))
     .catch((err) => console.error("❌ Erreur MongoDB :", err));
 
-// Routes (chemins corrigés)
+// Import des routes
 const utilisateurRoutes = require("./routes/utilisateurs");
 const noteRoutes = require("./routes/notes");
+const adminRoutes = require("./routes/admin"); // <-- ajout des routes admin
 
+// Montage des routes
 app.use("/api/utilisateurs", utilisateurRoutes);
 app.use("/api/notes", noteRoutes);
+app.use("/api/admin", adminRoutes); // <-- branchement des routes admin
 
 // Lancement du serveur
 app.listen(PORT, () => {
